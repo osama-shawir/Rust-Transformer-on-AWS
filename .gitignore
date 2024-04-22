@@ -12,3 +12,5 @@ Cargo.lock
 
 # MSVC Windows builds of rustc generate these, which store debugging information
 *.pdb
+
+/workspaces/Rust-Transformer-on-AWS/rust_llm/src/pythia-410m-q5_1-ggjt.bin
