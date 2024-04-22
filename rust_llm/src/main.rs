@@ -1,16 +1,10 @@
 use lambda_http::{run, service_fn, tracing, Body, Error, Request, RequestExt, Response};
 use std::{convert::Infallible, io::Write, path::PathBuf};
-/// This is the main body for the function.
-/// Write your code inside it.
-/// There are some code example in the following URLs:
-/// - https://github.com/awslabs/aws-lambda-rust-runtime/tree/main/examples
+
 fn infer(prompt: String) -> Result<String, Box<dyn std::error::Error>> {
     let tokenizer_source = llm::TokenizerSource::Embedded;
     let model_architecture = llm::ModelArchitecture::GptNeoX;
-    // for local run
-    // let model_path = PathBuf::from("src/pythia-1b-q4_0-ggjt.bin");
-    // for deployment
-    let model_path = PathBuf::from("/new-lambda-project/pythia-1b-q4_0-ggjt.bin");
+    let model_path = PathBuf::from("src/pythia-410m-q5_1-ggjt.bin");
 
     let prompt = prompt.to_string();
     let model = llm::load_dynamic(
@@ -31,23 +25,22 @@ fn infer(prompt: String) -> Result<String, Box<dyn std::error::Error>> {
             prompt: (&prompt).into(),
             parameters: &llm::InferenceParameters::default(),
             play_back_previous_tokens: false,
-            // specify token to use
             maximum_token_count: Some(20),
         },
-        // OutputRequest
         &mut Default::default(),
         |r| match r {
             llm::InferenceResponse::PromptToken(t) | llm::InferenceResponse::InferredToken(t) => {
-                print!("{t}");
-                std::io::stdout().flush().unwrap();
-                generated_tokens.push_str(&t);
+                if t != "<|padding|>" {
+                    print!("{}", t);
+                    std::io::stdout().flush().unwrap();
+                    generated_tokens.push_str(&format!("{} ", t));
+                }
                 Ok(llm::InferenceFeedback::Continue)
             }
             _ => Ok(llm::InferenceFeedback::Continue),
         },
     );
 
-    // Return statement
     match res {
         Ok(_) => Ok(generated_tokens),
         Err(err) => Err(Box::new(err)),
@@ -55,11 +48,11 @@ fn infer(prompt: String) -> Result<String, Box<dyn std::error::Error>> {
 }
 
 async fn function_handler(event: Request) -> Result<Response<Body>, Error> {
-    // Extract some useful information from the request
     let query = event
         .query_string_parameters_ref()
         .and_then(|params| params.first("query"))
-        .unwrap_or("I stayed up all night to");
+        .unwrap_or("The nights are long");
+
     let message = match infer(query.to_string()) {
         Ok(inference_result) => {
             format!("{}", inference_result)
@@ -85,5 +78,3 @@ async fn main() -> Result<(), Error> {
 
     run(service_fn(function_handler)).await
 }
-
-
